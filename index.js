@@ -37,6 +37,20 @@ function checkPathExists(targetPath) {
   }
 }
 
+// 检查路径是否是有效的Typora应用程序路径
+function isValidTyporaPath(typoraPath) {
+  if (!checkPathExists(typoraPath)) return false;
+  // 检查是不是文件
+  const stat = fs.statSync(typoraPath);
+  if (!stat.isFile()) return false;
+
+  // 判断是不是可执行文件
+  const isExecutable = fs.statSync(typoraPath).mode & 0o111;
+  if (!isExecutable) return false;
+
+  return true;
+} 
+
 // 打开Typora
 function openWithTypora(targetPath) {
   const typoraPath = getTyporaPath();
@@ -102,16 +116,3 @@ program
 
 // 解析命令行参数
 program.parse(); 
-
-function isValidTyporaPath(typoraPath) {
-  if (!checkPathExists(typoraPath)) return false;
-  // 检查是不是文件
-  const stat = fs.statSync(typoraPath);
-  if (!stat.isFile()) return false;
-
-  // 判断是不是可执行文件
-  const isExecutable = fs.statSync(typoraPath).mode & 0o111;
-  if (!isExecutable) return false;
-
-  return true;
-} 
