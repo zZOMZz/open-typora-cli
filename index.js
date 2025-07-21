@@ -1,16 +1,19 @@
 #!/usr/bin/env node
 
+const os = require('os');
 const { program } = require('commander');
 const path = require('path');
 const fs = require('fs');
-const { exec } = require('child_process');
-
+const { exec, spawn, spawnSync} = require('child_process');
+const configPath = path.join(os.homedir(), '.typora-cli.json');
 // 获取Typora应用程序路径
 function getTyporaPath() {
-  if(process.env.TYPORA_PATH){
-    return process.env.TYPORA_PATH;
+  // 如果配置文件存在，则读取配置文件
+  if(fs.existsSync(configPath)){
+    return JSON.parse(fs.readFileSync(configPath, 'utf-8')).typoraPath;
   }
 
+  // 如果配置文件不存在，则根据操作系统获取默认路径
   const platform = process.platform;
   
   switch (platform) {
@@ -38,45 +41,77 @@ function checkPathExists(targetPath) {
 function openWithTypora(targetPath) {
   const typoraPath = getTyporaPath();
   const resolvedPath = path.resolve(targetPath);
-  
-  // 检查目标路径是否存在
+
   if (!checkPathExists(resolvedPath)) {
-    console.error(`错误: 路径不存在 "${resolvedPath}"`);
+    console.error(`[Error]: 读取文件或文件夹路径不存在 "${resolvedPath}"`);
     process.exit(1);
   }
-  
-  // 构建命令
-  const command = `"${typoraPath}" "${resolvedPath}"`;
-  
-  // 执行命令
-  exec(command, (error, stdout, stderr) => {
-    if (error) {
-      console.error(`执行错误: ${error.message}`);
-      process.exit(1);
+
+  try {
+    if (process.platform === 'darwin') {
+      // macOS: 用 open -a Typora
+      exec(`open -a "${typoraPath}" "${resolvedPath}"`);
+      process.exit(0);
+    } else {
+      // 其他平台（如 Linux），直接用 Typora 路径
+      const child = spawn(typoraPath, [resolvedPath], {
+        detached: true,
+        stdio: 'ignore'
+      });
+      child.unref();
+      process.exit(0);
     }
-    if (stderr) {
-      console.error(`stderr: ${stderr}`);
-    }
-    if (stdout) {
-      console.log(`stdout: ${stdout}`);
-    }
-  });
+  } catch (error) {
+    console.error(`[Error]: 打开Typora失败: ${error.message}`);
+    process.exit(1);
+  }  
 }
 
-// 设置命令行参数
+// 设置path
 program
-  .name('typora')
+  .name('config-typora')
+  .command('config')
+  .description('配置Typora应用程序路径')
+  .option('-t, --typora-path <path>', 'Typora应用程序路径')
+  .action((options) => {
+    if(options.typoraPath){
+      if (!isValidTyporaPath(options.typoraPath)) {
+        console.error(`[Error]: 该路径不是有效的Typora应用程序路径: ${options.typoraPath}`);
+        process.exit(1);
+      }
+
+      fs.writeFileSync(configPath, JSON.stringify({
+        typoraPath: options.typoraPath
+      }));
+      console.log(`[Info]: 配置写入成功，Typora应用程序路径为: ${options.typoraPath}`);
+    }
+
+    process.exit(0);
+  });
+
+// 设置命令行参数 
+program
+  .name('open-typora')
   .description('在Typora中打开文件或文件夹')
   .version('1.0.0')
   .argument('[path]', '要打开的文件或文件夹路径 (默认为当前目录)', '.')
-  .option('-t, --typora-path <path>', 'Typora应用程序路径')
-  .action((pathArg, options) => {
-    if(options.typoraPath){
-      process.env.TYPORA_PATH = options.typoraPath;
-    }
-
+  .action((pathArg) => {
     openWithTypora(pathArg);
+
   });
 
 // 解析命令行参数
 program.parse(); 
+
+function isValidTyporaPath(typoraPath) {
+  if (!checkPathExists(typoraPath)) return false;
+  // 检查是不是文件
+  const stat = fs.statSync(typoraPath);
+  if (!stat.isFile()) return false;
+
+  // 判断是不是可执行文件
+  const isExecutable = fs.statSync(typoraPath).mode & 0o111;
+  if (!isExecutable) return false;
+
+  return true;
+} 
