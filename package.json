@@ -1,0 +1,21 @@
+{
+  "name": "open-typora-cli",
+  "version": "1.0.0",
+  "description": "在Typora中打开文件或文件夹的命令行工具",
+  "main": "index.js",
+  "bin": {
+    "typora": "./index.js"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node index.js",
+    "install-global": "npm install -g ."
+  },
+  "keywords": ["typora", "cli", "markdown", "editor"],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "commander": "^14.0.0"
+  }
+}
